@@ -148,7 +148,7 @@ static inline int
 fetch_and_add (int *var, int value)
 {
   asm volatile("lock; xaddl %0, %1"
-    : "r" (value),  "+m" (*var)
+    : "+r" (value),  "+m" (*var)
     :
     : "memory"
   );
