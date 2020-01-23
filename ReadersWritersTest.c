@@ -4,9 +4,7 @@
 
 void testReadersWriters(int * pattern, int pattern_size);
 int main(){
-    rwinit();
-    rwtest(1);
-/*    char argv[100];
+    char argv[100];
 
     printf(1, "enter pattern for readers/writers test\n");
     int read_size = read(0, argv, sizeof(argv));
@@ -22,7 +20,7 @@ int main(){
             exit();
         }
     }
-    testReadersWriters(pattern, i); */
+    testReadersWriters(pattern, i);
     exit();
     return 0;
 }

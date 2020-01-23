@@ -106,7 +106,7 @@ sys_ticketlockTest(void)
 int
 sys_rwinit(void)
 {
-  return 1;
+  return rwinit();
 }
 
 int
@@ -114,8 +114,7 @@ sys_rwtest(void)
 {
   uint pattern;
   argptr(0, (void *)&pattern, sizeof(pattern));
-  cprintf("Patt: %d", pattern);
-  if(pattern != 0 or pattern != 1)
+  if(pattern != 0 && pattern != 1)
     return -1;
-  return 0;
+  return rwtest(pattern);
 }

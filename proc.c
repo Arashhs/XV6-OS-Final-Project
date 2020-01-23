@@ -24,6 +24,10 @@ static void wakeup1(void *chan);
 struct ticketlock tl;
 int sharedValue;
 
+struct ticketlock wrt;
+struct ticketlock mutex;
+int rwSharedValue, readcnt;
+
 void
 pinit(void)
 {
@@ -552,4 +556,46 @@ ticketlockTest(void)
   sharedValue++;
   releaseTicketlock(&tl);
   return sharedValue;
+}
+
+int
+rwinit(void)
+{
+  initTicketlock(&wrt, "wrt");
+  initTicketlock(&mutex, "mutex");
+  rwSharedValue = 0;
+  readcnt = 0;
+  return 1;
+
+}
+
+int
+rwtest(uint pattern)
+{
+  if(pattern == 0) { //Reader
+
+  acquireTicketlock(&mutex);
+  readcnt++;
+  if(readcnt==1)
+    acquireTicketlock(&wrt);
+  releaseTicketlock(&mutex);
+
+//  cprintf("Reader read: %d\n", rwSharedValue); //read
+
+  acquireTicketlock(&mutex);
+  readcnt--;
+  if(readcnt==0)
+    releaseTicketlock(&wrt);
+  releaseTicketlock(&mutex);
+  return rwSharedValue;
+
+  }
+
+  else //Writer
+  {
+  acquireTicketlock(&wrt);
+  rwSharedValue++;
+  releaseTicketlock(&wrt);
+  return rwSharedValue;
+  }
 }

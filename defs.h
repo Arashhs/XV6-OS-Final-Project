@@ -124,6 +124,8 @@ void            yield(void);
 
 int             ticketlockInit(void);
 int             ticketlockTest(void);
+int             rwinit(void);
+int             rwtest(uint);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
