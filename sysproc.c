@@ -7,6 +7,7 @@
 #include "mmu.h"
 #include "proc.h"
 
+
 int
 sys_fork(void)
 {
@@ -93,11 +94,11 @@ sys_uptime(void)
 int
 sys_ticketlockInit(void)
 {
-  return 1;
-
+  return ticketlockInit();
 }
 
-int sys_ticketlockTest(void)
+int
+sys_ticketlockTest(void)
 {
-  return 1;
+  return ticketlockTest();
 }

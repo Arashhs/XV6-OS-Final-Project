@@ -24,22 +24,18 @@ acquireTicketlock(struct ticketlock *lk)
 {
   int ticket;
   ticket = fetch_and_add(&lk->ticket, 1);
+//  cprintf("Ticket: %d, Turn: %d\n", ticket, lk->turn);
   while(ticket != lk->turn)
   ;
 
   // Record info about lock acquisition for debugging.
-  lk->cpu = mycpu();
+  //lk->cpu = mycpu();
 }
 
 // Release the lock, give turn to the next ticket
 void
-releaseTicketLock(struct ticketlock *lk)
+releaseTicketlock(struct ticketlock *lk)
 {
-
-  lk->pcs[0] = 0;
-  lk->cpu = 0;
-
   lk->turn++;
-
-  
+//  cprintf("program finished. Turn: %d\n", lk->turn);
 }

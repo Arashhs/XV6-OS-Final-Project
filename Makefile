@@ -17,6 +17,7 @@ OBJS = \
 	proc.o\
 	sleeplock.o\
 	spinlock.o\
+	ticketlock.o\
 	string.o\
 	swtch.o\
 	syscall.o\
@@ -181,7 +182,7 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
-	_TicketLock\
+	_TicketlockTest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
