@@ -572,6 +572,7 @@ rwinit(void)
 int
 rwtest(uint pattern)
 {
+  int ret;
   if(pattern == 0) { //Reader
 
   acquireTicketlock(&mutex);
@@ -580,22 +581,22 @@ rwtest(uint pattern)
     acquireTicketlock(&wrt);
   releaseTicketlock(&mutex);
 
-//  cprintf("Reader read: %d\n", rwSharedValue); //read
+  ret = rwSharedValue; //read
 
   acquireTicketlock(&mutex);
   readcnt--;
   if(readcnt==0)
     releaseTicketlock(&wrt);
   releaseTicketlock(&mutex);
-  return rwSharedValue;
-
+  return ret;
   }
 
   else //Writer
   {
   acquireTicketlock(&wrt);
   rwSharedValue++;
+  ret = rwSharedValue;
   releaseTicketlock(&wrt);
-  return rwSharedValue;
+  return ret;
   }
 }
