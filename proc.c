@@ -16,6 +16,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int nexttid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -73,6 +74,19 @@ myproc(void) {
   return p;
 }
 
+struct thread*
+mythread(void) {
+  struct cpu *c;
+  struct proc *p;
+  struct thread *t;
+  pushcli();
+  c = mycpu();
+  p = c->proc;
+  t = c->thread;
+  popcli();
+  return t;
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -82,7 +96,8 @@ static struct proc*
 allocproc(void)
 {
   struct proc *p;
-  char *sp;
+//  char *sp;
+  struct thread *t;
 
   acquire(&ptable.lock);
 
@@ -94,33 +109,96 @@ allocproc(void)
   return 0;
 
 found:
-  p->state = EMBRYO;
+  p->state = USED;
   p->pid = nextpid++;
 
   release(&ptable.lock);
 
-  // Allocate kernel stack.
-  if((p->kstack = kalloc()) == 0){
+  t = allocproc(p);
+
+  if (t == 0) { //No thread can be allocated for this process.
     p->state = UNUSED;
     return 0;
   }
-  sp = p->kstack + KSTACKSIZE;
+
+  p->threads[0] = *t;
+
+  for(t = p->threads; t < &p->threads[MAX_THREADS]; t++)
+    t->state = UNUSED;
+
+  return p;
+}
+
+//Allocate thread for process
+struct thread*
+allocthread(struct proc * p)
+{
+  struct thread *t;
+  char *sp;
+  int found = 0;
+
+  acquire(&p->lock);
+  for(t = p->threads; found != 1 && t < &p->threads[NTHREAD]; t++)
+  {
+    if(t->state == UNUSED)
+    {
+      found = 1;
+      t--;
+    }
+    else if(t->state == ZOMBIE)
+    {
+      clearThread(t);
+      t->state = UNUSED;
+      found = 1;
+      t--;
+    }
+  }
+
+  if(!found)
+    return 0;
+
+  t->tid = nexttid++;
+  t->state = EMBRYO;
+  t->parent = p;
+  t->killed = 0;
+
+  // Allocate kernel stack.
+  if((t->kstack = kalloc()) == 0){
+    t->state = UNUSED;
+    return 0;
+  }
+  sp = t->kstack + KSTACKSIZE;
 
   // Leave room for trap frame.
-  sp -= sizeof *p->tf;
-  p->tf = (struct trapframe*)sp;
+  sp -= sizeof *t->tf;
+  t->tf = (struct trapframe*)sp;
 
   // Set up new context to start executing at forkret,
   // which returns to trapret.
   sp -= 4;
   *(uint*)sp = (uint)trapret;
 
-  sp -= sizeof *p->context;
-  p->context = (struct context*)sp;
-  memset(p->context, 0, sizeof *p->context);
-  p->context->eip = (uint)forkret;
+  sp -= sizeof *t->context;
+  t->context = (struct context*)sp;
+  memset(t->context, 0, sizeof *t->context);
+  t->context->eip = (uint)forkret;
 
-  return p;
+  release(&p->lock);
+  return t;
+}
+
+//clear a thread (mostly zombie threads)
+void
+clearThread(struct thread * t)
+{
+  if(t->state == INVALID || t->state == ZOMBIE)
+    kfree(t->kstack);
+
+  t->kstack = 0;
+  t->tid = 0;
+  t->state = UNUSED;
+  t->parent = 0;
+  t->killed = 0;
 }
 
 //PAGEBREAK: 32
@@ -128,24 +206,27 @@ found:
 void
 userinit(void)
 {
+  struct thread *t;
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
+  
+  t= p->threads;
   
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
   p->sz = PGSIZE;
-  memset(p->tf, 0, sizeof(*p->tf));
-  p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
-  p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
-  p->tf->es = p->tf->ds;
-  p->tf->ss = p->tf->ds;
-  p->tf->eflags = FL_IF;
-  p->tf->esp = PGSIZE;
-  p->tf->eip = 0;  // beginning of initcode.S
+  memset(t->tf, 0, sizeof(*t->tf));
+  t->tf->cs = (SEG_UCODE << 3) | DPL_USER;
+  t->tf->ds = (SEG_UDATA << 3) | DPL_USER;
+  t->tf->es = t->tf->ds;
+  t->tf->ss = t->tf->ds;
+  t->tf->eflags = FL_IF;
+  t->tf->esp = PGSIZE;
+  t->tf->eip = 0;  // beginning of initcode.S
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -156,7 +237,7 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  p->state = RUNNABLE;
+  t->state = RUNNABLE;
 
   release(&ptable.lock);
 }
@@ -192,24 +273,29 @@ fork(void)
   struct proc *np;
   struct proc *curproc = myproc();
 
+  struct thread *nt;
+  struct thread *curthread = mythread();
+
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
   }
 
+  nt = np->threads;
+
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
-    kfree(np->kstack);
-    np->kstack = 0;
+    kfree(nt->kstack);
+    nt->kstack = 0;
     np->state = UNUSED;
     return -1;
   }
   np->sz = curproc->sz;
   np->parent = curproc;
-  *np->tf = *curproc->tf;
+  *nt->tf = *curthread->tf;
 
   // Clear %eax so that fork returns 0 in the child.
-  np->tf->eax = 0;
+  nt->tf->eax = 0;
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
@@ -222,11 +308,51 @@ fork(void)
 
   acquire(&ptable.lock);
 
-  np->state = RUNNABLE;
+  nt->state = RUNNABLE;
 
   release(&ptable.lock);
 
   return pid;
+}
+
+//terminate all siblings for the current thread
+void
+killSiblings()
+{
+  char found;
+  struct thread * t;
+  struct thread * curthread = mythread();
+  struct proc * curproc = myproc();
+  acquire(&proc->lock);
+  if(curthread->killed == 1)
+  {
+    wakeup1(curthread);
+    curthread->state = INVALID; // thread should make itlsef INVALID! otherwise two cpu can run on the same thread
+    release(&proc->lock);
+    acquire(&ptable.lock);
+    sched();
+  }
+  else
+    for(t = curproc->threads; t < &curproc->threads[MAX_THREADS]; t++)
+      if(t->tid != curthread->tid)
+        t->killed = 1;
+
+  release(&proc->lock);
+
+  for(;;)
+  {
+    found = 0;
+    acquire(&proc->lock);
+    for(t = curproc->threads; t < &curproc->threads[MAX_THREADS]; t++)
+      if(t->tid != curthread->tid && t->state != INVALID && t->state != UNUSED)
+        found = 1;
+
+    release(&proc->lock);
+    if(found) // some thread does not know the process is in dying state, lets wait for him to recover
+      yield();
+    else      // all of the other threads are dead
+      break;
+  }
 }
 
 // Exit the current process.  Does not return.
@@ -235,8 +361,13 @@ fork(void)
 void
 exit(void)
 {
+
+  //kill all siblings
+  killSiblings();
+
   struct proc *curproc = myproc();
   struct proc *p;
+  struct thread *curthread = mythread();
   int fd;
 
   if(curproc == initproc)
@@ -271,6 +402,8 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
+  curthread->state = INVALID;
+  
   sched();
   panic("zombie exit");
 }
