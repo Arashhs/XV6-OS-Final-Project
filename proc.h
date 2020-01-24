@@ -11,7 +11,7 @@ struct cpu {
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
 
-  struct thread *thread        // Running thread
+  struct thread *thread;       // Running thread
 };
 
 extern struct cpu cpus[NCPU];
@@ -36,8 +36,22 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, USED, ZOMBIE };
-enum threadstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE, INVALID };
+enum procstate { PUNUSED, USED, PZOMBIE };
+enum threadstate { TUNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, TZOMBIE, INVALID };
+
+
+// Per-thread
+struct thread {
+  int tid;
+  char *kstack;                // Bottom of kernel stack for this process
+  struct proc *parent;         // Parent process
+  struct trapframe *tf;        // Trap frame for current syscall
+  struct context *context;     // swtch() here to run process
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  enum threadstate state;       
+
+};
 
 // Per-process state
 struct proc {
@@ -50,20 +64,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  struct thread threads[MAX_THREADS];
-};
-
-// Per-thread
-struct thread {
-  int tid;
-  char *kstack;                // Bottom of kernel stack for this process
-  struct proc *parent;         // Parent process
-  struct trapframe *tf;        // Trap frame for current syscall
-  struct context *context;     // swtch() here to run process
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
-  enum threadstate state;
-
+  struct thread threads[MAX_THREADS]; //Threads for this process
+  struct spinlock lock;        // A spinlock to sync threads
 };
 
 // Process memory is laid out contiguously, low addresses first:
