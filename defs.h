@@ -111,7 +111,6 @@ int             growproc(int);
 int             kill(int);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
-struct thread*  mythread();
 void            pinit(void);
 void            procdump(void);
 void            scheduler(void) __attribute__((noreturn));
@@ -127,6 +126,10 @@ int             ticketlockInit(void);
 int             ticketlockTest(void);
 int             rwinit(void);
 int             rwtest(uint);
+
+struct thread*  mythread();
+void            killSelf(void);
+void            killSiblings(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

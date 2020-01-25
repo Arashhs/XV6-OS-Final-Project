@@ -1,3 +1,5 @@
+#include "spinlock.h"
+
 #define MAX_THREADS 16
 
 // Per-CPU state
@@ -63,6 +65,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int killed;                  // If non-zero, have been killed
 
   struct thread threads[MAX_THREADS]; //Threads for this process
   struct spinlock lock;        // A spinlock to sync threads

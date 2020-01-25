@@ -77,58 +77,26 @@ myproc(void) {
 struct thread*
 mythread(void) {
   struct cpu *c;
-  struct proc *p;
   struct thread *t;
   pushcli();
   c = mycpu();
-  p = c->proc;
   t = c->thread;
   popcli();
   return t;
 }
 
-//PAGEBREAK: 32
-// Look in the process table for an UNUSED proc.
-// If found, change state to EMBRYO and initialize
-// state required to run in the kernel.
-// Otherwise return 0.
-static struct proc*
-allocproc(void)
+//clear a thread (mostly zombie threads)
+void
+clearThread(struct thread * t)
 {
-  struct proc *p;
-//  char *sp;
-  struct thread *t;
+  if(t->state == INVALID || t->state == TZOMBIE)
+    kfree(t->kstack);
 
-  acquire(&ptable.lock);
-
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == PUNUSED)
-      goto found;
-
-  release(&ptable.lock);
-  return 0;
-
-found:
-  p->state = USED;
-  p->pid = nextpid++;
-
-  release(&ptable.lock);
-
-  initlock(&p->lock, p->name);
-
-  t = allocproc(p);
-
-  if (t == 0) { //No thread can be allocated for this process.
-    p->state = PUNUSED;
-    return 0;
-  }
-
-  p->threads[0] = *t;
-
-  for(t = p->threads; t < &p->threads[MAX_THREADS]; t++)
-    t->state = TUNUSED;
-
-  return p;
+  t->kstack = 0;
+  t->tid = 0;
+  t->state = TUNUSED;
+  t->parent = 0;
+  t->killed = 0;
 }
 
 //Allocate thread for process
@@ -140,7 +108,7 @@ allocthread(struct proc * p)
   int found = 0;
 
   acquire(&p->lock);
-  for(t = p->threads; found != 1 && t < &p->threads[NTHREAD]; t++)
+  for(t = p->threads; found != 1 && t < &p->threads[MAX_THREADS]; t++)
   {
     if(t->state == TUNUSED)
     {
@@ -189,19 +157,51 @@ allocthread(struct proc * p)
   return t;
 }
 
-//clear a thread (mostly zombie threads)
-void
-clearThread(struct thread * t)
-{
-  if(t->state == INVALID || t->state == TZOMBIE)
-    kfree(t->kstack);
 
-  t->kstack = 0;
-  t->tid = 0;
-  t->state = TUNUSED;
-  t->parent = 0;
-  t->killed = 0;
+//PAGEBREAK: 32
+// Look in the process table for an UNUSED proc.
+// If found, change state to EMBRYO and initialize
+// state required to run in the kernel.
+// Otherwise return 0.
+static struct proc*
+allocproc(void)
+{
+  struct proc *p;
+//  char *sp;
+  struct thread *t;
+
+  acquire(&ptable.lock);
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    if(p->state == PUNUSED)
+      goto found;
+
+  release(&ptable.lock);
+  return 0;
+
+found:
+  p->state = USED;
+  p->pid = nextpid++;
+
+  release(&ptable.lock);
+
+  initlock(&p->lock, p->name);
+
+  t = allocthread(p);
+
+  if (t == 0) { //No thread can be allocated for this process.
+    p->state = PUNUSED;
+    return 0;
+  }
+
+  p->threads[0] = *t;
+
+  for(t = p->threads; t < &p->threads[MAX_THREADS]; t++)
+    t->state = TUNUSED;
+
+  return p;
 }
+
 
 //PAGEBREAK: 32
 // Set up first user process.
@@ -468,19 +468,6 @@ wait(void)
   }
 }
 
-//Clear selected thread
-void
-clearThread(struct thread * t)
-{
-  if(t->state == INVALID || t->state == TZOMBIE)
-    kfree(t->kstack);
-
-  t->kstack = 0;
-  t->tid = 0;
-  t->state = TUNUSED;
-  t->parent = 0;
-  t->killed = 0;
-}
 
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
@@ -509,7 +496,7 @@ scheduler(void)
       if(p->state != USED)
         continue;
 
-    for(t = p->threads; t < &p->threads[MAX_THREADS; t++])
+    for(t = p->threads; t < &p->threads[MAX_THREADS]; t++){
       if(t->state != RUNNABLE)
         continue;
 
@@ -534,6 +521,7 @@ scheduler(void)
       if(p->state != USED)
         t = &p->threads[MAX_THREADS];
       c->thread = 0;
+    }
     }
     release(&ptable.lock);
 
@@ -696,6 +684,16 @@ kill(int pid)
   return -1;
 }
 
+// Kill the threads with of given process with pid which is used in trap.c
+void
+killSelf()
+{
+  acquire(&ptable.lock);
+  wakeup1(mythread());
+  mythread()->state = INVALID; // thread must make itself INVALID! Otherwise two cpu can run on the same thread
+  sched();
+}
+
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
@@ -708,7 +706,7 @@ procdump(void)
   [USED]    "used",
   [PZOMBIE]    "pzombie"
   };
-
+/*
   static char *threadStates[] = {
   [TUNUSED]    "tunused",
   [EMBRYO]    "embryo",
@@ -718,7 +716,7 @@ procdump(void)
   [TZOMBIE]  "tzombie",
   [INVALID]    "invalid",
   };
-
+*/
 
 
   int i;
