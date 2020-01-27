@@ -127,6 +127,8 @@ int             ticketlockTest(void);
 int             rwinit(void);
 int             rwtest(uint);
 
+int             createThread(void(*)(), void*);
+
 struct thread*  mythread();
 void            killSelf(void);
 void            killSiblings(void);

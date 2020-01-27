@@ -122,7 +122,16 @@ sys_rwtest(void)
 int
 sys_createThread(void)
 {
-  return 1;
+  void (*func)();
+  void* stack;
+
+  if(argptr(0, (void*)&func, sizeof(void*)) < 0)
+    return -1;
+  if(argptr(3, (void*)&stack, sizeof(void*)) < 0)
+    return -1;
+
+
+  return createThread(func, stack);
 
 }
 
@@ -138,10 +147,12 @@ sys_getThreadID(void)
 int
 sys_exitThread(void)
 {
+  
 
 }
 
 int sys_joinThread(void)
 {
+
 
 }

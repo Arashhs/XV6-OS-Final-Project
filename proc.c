@@ -804,3 +804,28 @@ rwtest(uint pattern)
   return ret;
   }
 }
+
+int
+createThread(void(*func)(), void *stack)
+{
+
+  struct thread * t;
+  t = allocthread(myproc()); //Creating a thread for running process
+
+  if(t == 0) //Couldn't create thread
+    return -1;
+
+  *t->tf = *mythread()->tf;
+
+//  t->tf->eax = 0; // Clear %eax so that fork returns 0 in the child.
+  t->tf->eip = (int) func; // Assigning program counter to start address of function
+  
+  int stack_pointer = (int)stack + PGSIZE;
+  
+  t->tf->esp = stack_pointer;
+  t->tf->ebp = t->tf->esp;
+
+  t->state = RUNNABLE;
+  return t->tid;
+}
+
