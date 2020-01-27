@@ -108,6 +108,10 @@ extern int sys_ticketlockInit(void);
 extern int sys_ticketlockTest(void);
 extern int sys_rwinit(void);
 extern int sys_rwtest(void);
+extern int sys_createThread(void);
+extern int sys_getThreadID(void);
+extern int sys_exitThread(void);
+extern int sys_joinThread(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -136,6 +140,10 @@ static int (*syscalls[])(void) = {
 [SYS_ticketlockTest] sys_ticketlockTest,
 [SYS_rwinit] sys_rwinit,
 [SYS_rwtest] sys_rwtest,
+[SYS_createThread] sys_createThread,
+[SYS_getThreadID] sys_getThreadID,
+[SYS_exitThread] sys_exitThread,
+[SYS_joinThread] sys_joinThread,
 };
 
 void

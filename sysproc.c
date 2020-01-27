@@ -118,3 +118,30 @@ sys_rwtest(void)
     return -1;
   return rwtest(pattern);
 }
+
+int
+sys_createThread(void)
+{
+  return 1;
+
+}
+
+int
+sys_getThreadID(void)
+{
+  if (mythread() && myproc())
+    return mythread()->tid;
+
+  return -1;
+}
+
+int
+sys_exitThread(void)
+{
+
+}
+
+int sys_joinThread(void)
+{
+
+}
