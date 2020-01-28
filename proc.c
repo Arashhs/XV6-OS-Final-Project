@@ -684,7 +684,7 @@ kill(int pid)
   return -1;
 }
 
-// Kill the threads with of given process with pid which is used in trap.c
+// Kill the threads of given process with pid which is used in trap.c
 void
 killSelf()
 {
@@ -839,14 +839,15 @@ exitThread()
   acquire(&myproc()->lock);
   for(t = myproc()->threads; t < &myproc()->threads[MAX_THREADS]; t++)
     if( t->tid != mythread()->tid && (t->state == EMBRYO || t->state == RUNNABLE || t->state == RUNNING || t->state == SLEEPING))
-      found = 1;
+      found = 1; //This means there is another thread in the process which can run, so this thread which we want to exit is not the last running thread!
 
-  if(!found)
+  if(!found) //This means this thread is the last thread for this process which can run, so process should exit.
   {
     release(&myproc()->lock);
     wakeup(t);
     exit();
   }
+  //The following lines run for a thread which is not the last runnable thread in process
   release(&myproc()->lock);
 
   acquire(&ptable.lock);
