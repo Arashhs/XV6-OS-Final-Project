@@ -817,15 +817,67 @@ createThread(void(*func)(), void *stack)
 
   *t->tf = *mythread()->tf;
 
-//  t->tf->eax = 0; // Clear %eax so that fork returns 0 in the child.
+  t->tf->eax = 0; // Clearing eax so that fork returns 0 in the child.
   t->tf->eip = (int) func; // Assigning program counter to start address of function
-  
-  int stack_pointer = (int)stack + PGSIZE;
-  
-  t->tf->esp = stack_pointer;
+//  cprintf("t->tf->eip: %d\n", t->tf->eip);
+//  cprintf("myt: %d\n", mythread()->tf->eip);
+  t->tf->esp = (int) stack + 4000;
+//  cprintf("1: %d\n2:%d\n", (int) stack + PGSIZE, (uint) stack + PGSIZE);
   t->tf->ebp = t->tf->esp;
 
   t->state = RUNNABLE;
+//  cprintf("Created thread id: %d\n", t->tid);
   return t->tid;
 }
 
+void
+exitThread()
+{ 
+  struct thread * t;
+  int found = 0;
+
+  acquire(&myproc()->lock);
+  for(t = myproc()->threads; t < &myproc()->threads[MAX_THREADS]; t++)
+    if( t->tid != mythread()->tid && (t->state == EMBRYO || t->state == RUNNABLE || t->state == RUNNING || t->state == SLEEPING))
+      found = 1;
+
+  if(!found)
+  {
+    release(&myproc()->lock);
+    wakeup(t);
+    exit();
+  }
+  release(&myproc()->lock);
+
+  acquire(&ptable.lock);
+  wakeup1(mythread());
+  mythread()->state = TZOMBIE;
+  
+  sched(); 
+
+}
+
+
+int
+joinThread(int tid)
+{
+  struct thread * t;
+  if(tid == mythread()->tid) //Thread is waiting for itself!
+    return -1;
+
+  for(t = myproc()->threads; t < &myproc()->threads[MAX_THREADS] && t->tid != tid; t++);
+  //t is now the thread which we want to wait for to finish
+
+  acquire(&ptable.lock);
+  // found the one
+  while(t->tid == tid && (t->state == EMBRYO || t->state == RUNNABLE || t->state == RUNNING || t->state == SLEEPING))
+    sleep(t, &ptable.lock); //While thread with tid is not finish, sleep!
+
+  release(&ptable.lock);
+
+  //Thread's parent is finished!
+  if(t->state == TZOMBIE)
+    clearThread(t);
+
+  return 0;
+}

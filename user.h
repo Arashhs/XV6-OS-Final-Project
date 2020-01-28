@@ -28,10 +28,10 @@ int ticketlockInit(void);
 int ticketlockTest(void);
 int rwinit(void);
 int rwtest(uint);
-int createThread(void (*function)(), void* stack)
+int createThread(void (*function)(), void* stack);
 int getThreadID(void);
 void exitThread(void);
-int joinThread(int threadID)
+int joinThread(int threadID);
 
 
 // ulib.c

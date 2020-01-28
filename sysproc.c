@@ -144,15 +144,20 @@ sys_getThreadID(void)
   return -1;
 }
 
-int
+void
 sys_exitThread(void)
 {
-  
+  exitThread();
 
 }
 
-int sys_joinThread(void)
+int 
+sys_joinThread(void)
 {
+  int tid;
+  if(argint(0, &tid) < 0)
+    return -1;
 
+  return joinThread(tid);
 
 }

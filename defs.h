@@ -128,6 +128,8 @@ int             rwinit(void);
 int             rwtest(uint);
 
 int             createThread(void(*)(), void*);
+void            exitThread(void);
+int             joinThread(int);
 
 struct thread*  mythread();
 void            killSelf(void);
